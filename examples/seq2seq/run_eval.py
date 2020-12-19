@@ -30,6 +30,7 @@ def generate_summaries_or_translations(
     device: str = DEFAULT_DEVICE,
     fp16=False,
     task="summarization",
+    no_repeat_ngram_size=None,
     **gen_kwargs,
 ) -> None:
     fout = Path(out_file).open("w", encoding="utf-8")
@@ -50,7 +51,11 @@ def generate_summaries_or_translations(
             device
         )
         input_ids, attention_mask = trim_batch(**batch, pad_token_id=tokenizer.pad_token_id)
-        summaries = model.generate(input_ids=input_ids, attention_mask=attention_mask, **gen_kwargs)
+        summaries = model.generate(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            no_repeat_ngram_size=no_repeat_ngram_size,
+            **gen_kwargs)
         dec = tokenizer.batch_decode(summaries, skip_special_tokens=True, clean_up_tokenization_spaces=False)
         for hypothesis in dec:
             fout.write(hypothesis + "\n")
@@ -72,6 +77,8 @@ def run_generate():
         "--n_obs", type=int, default=-1, required=False, help="How many observations. Defaults to all."
     )
     parser.add_argument("--fp16", action="store_true")
+    parser.add_argument("--no_repeat_ngram_size", type=int, default=None,
+                         required=False, help="size of no repeat ngram")
     args = parser.parse_args()
     examples = [" " + x.rstrip() if "t5" in args.model_name else x.rstrip() for x in open(args.input_path).readlines()]
     if args.n_obs > 0:
@@ -85,6 +92,7 @@ def run_generate():
         device=args.device,
         fp16=args.fp16,
         task=args.task,
+        no_repeat_ngram_size=args.no_repeat_ngram_size
     )
     if args.reference_path is None:
         return
